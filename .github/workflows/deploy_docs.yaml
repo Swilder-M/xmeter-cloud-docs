@@ -9,12 +9,11 @@ on:
     tags:
       - v*
     branches:
-      - master
+      - vitepress-test
 
 jobs:
   deploy:
     runs-on: ubuntu-20.04
-    if: github.repository_owner == 'emqx'
     steps:
     - name: clone docs
       uses: actions/checkout@v3
@@ -49,7 +48,7 @@ jobs:
     - name: set env
       run: |
          BRANCH=$(echo ${{ github.ref }} | sed -r  "s ^refs/heads/|^refs/tags/(.*) \1 g")
-         if [ "$BRANCH" = "master" ];then
+         if [ "$BRANCH" = "vitepress-test" ];then
          VERSION="latest"
          else
          VERSION=$BRANCH
@@ -90,26 +89,5 @@ jobs:
     - name: upload dist
       run: |
         pip3 install coscmd
-        coscmd config -a ${{ secrets.TENCENT_COS_ID }} -s ${{ secrets.TENCENT_COS_KEY }} -b docs-1302406139 -r ap-shanghai
-        coscmd delete -r -f en/${DOCS_TYPE}/${VERSION} || true
-        coscmd delete -r -f zh/${DOCS_TYPE}/${VERSION} || true
-        coscmd config -a ${{ secrets.TENCENT_COS_ID }} -s ${{ secrets.TENCENT_COS_KEY }} -b docs-1302406139 -e cos.accelerate.myqcloud.com
+        coscmd config -a ${{ secrets.TENCENT_COS_ID }} -s ${{ secrets.TENCENT_COS_KEY }} -b docs-preview-1302406139 -e cos.accelerate.myqcloud.com
         coscmd upload -r frontend/docs/.vitepress/dist/ /
-
-    - name: flush cdn
-      run: |
-        pip3 install tccli
-        tccli configure set secretId ${{ secrets.TENCENT_COS_ID }}
-        tccli configure set secretKey ${{ secrets.TENCENT_COS_KEY }}
-        tccli configure set region ap-shanghai
-        tccli cdn PurgePathCache --cli-unfold-argument --Paths https://docs.emqx.com/zh/${DOCS_TYPE}/${VERSION}/ https://docs.emqx.com/en/${DOCS_TYPE}/${VERSION}/ --FlushType delete
-        tccli cdn PurgeUrlsCache --cli-unfold-argument --Urls https://docs.emqx.com/api/${DOCS_TYPE}_versions.json https://docs.emqx.com/sitemap_${DOCS_TYPE}_${VERSION}.xml
-
-    - name: update search index
-      uses: Swilder-M/docsearch-scraper-simple@next
-      env:
-        APPLICATION_ID: ${{ secrets.ALGOLIA_APPLICATION_ID_NEXT }}
-        API_KEY: ${{ secrets.ALGOLIA_API_KEY_NEXT }}
-      with:
-        docs_type: ${{ env.DOCS_TYPE }}
-        docs_version: ${{ env.VERSION }}
